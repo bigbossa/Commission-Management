@@ -10,16 +10,46 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
-import { useState } from "react"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, X } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Product {
   [key: string]: any
 }
 
-export function ProductsTable({ products }: { products: Product[] }) {
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 50
+interface PaginationInfo {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+interface ProductsTableProps {
+  products: Product[]
+  pagination: PaginationInfo | null
+  currentPage: number
+  onPageChange: (page: number) => void
+  loading: boolean
+}
+
+export function ProductsTable({ products, pagination, currentPage, onPageChange, loading }: ProductsTableProps) {
+  const [searchQuery, setSearchQuery] = useState("")
+
+  if (loading) {
+    return (
+      <div className="rounded-lg border bg-card p-8">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+        <p className="text-center text-sm text-muted-foreground mt-4">Loading data...</p>
+      </div>
+    )
+  }
 
   if (!products || products.length === 0) {
     return (
@@ -32,29 +62,72 @@ export function ProductsTable({ products }: { products: Product[] }) {
   // Get column names from first record
   const columns = Object.keys(products[0])
 
-  // Calculate pagination
-  const totalPages = Math.ceil(products.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentProducts = products.slice(startIndex, endIndex)
+  // Filter products based on search query (client-side filter on current page)
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products
 
-  const goToFirstPage = () => setCurrentPage(1)
-  const goToLastPage = () => setCurrentPage(totalPages)
-  const goToPreviousPage = () => setCurrentPage(prev => Math.max(1, prev - 1))
-  const goToNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1))
+    const query = searchQuery.toLowerCase()
+    return products.filter((product) => {
+      return columns.some((column) => {
+        const value = product[column]
+        if (value === null || value === undefined) return false
+        return String(value).toLowerCase().includes(query)
+      })
+    })
+  }, [products, searchQuery, columns])
+
+  const totalPages = pagination?.totalPages || 1
+  const total = pagination?.total || 0
+  const startIndex = pagination ? (pagination.page - 1) * pagination.pageSize + 1 : 1
+  const endIndex = pagination ? Math.min(pagination.page * pagination.pageSize, total) : products.length
+
+  const goToFirstPage = () => onPageChange(1)
+  const goToLastPage = () => onPageChange(totalPages)
+  const goToPreviousPage = () => onPageChange(Math.max(1, currentPage - 1))
+  const goToNextPage = () => onPageChange(Math.min(totalPages, currentPage + 1))
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="text-sm text-muted-foreground">
+          Total Records: <strong>{total.toLocaleString()}</strong> | 
+          Total Columns: <strong>{columns.length}</strong>
+          {searchQuery && (
+            <span> | Found on page: <strong className="text-primary">{filteredProducts.length}</strong></span>
+          )}
+        </div>
+        
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="ค้นหาในหน้านี้..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Total Records: <strong>{products.length}</strong> | 
-          Total Columns: <strong>{columns.length}</strong> |
-          Showing: <strong>{startIndex + 1}</strong> - <strong>{Math.min(endIndex, products.length)}</strong>
+          Showing: <strong>{startIndex.toLocaleString()}</strong> - <strong>{endIndex.toLocaleString()}</strong>
+          {searchQuery && filteredProducts.length < products.length && (
+            <span className="text-primary"> (filtered)</span>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            Page {totalPages > 0 ? currentPage : 0} of {totalPages}
           </span>
         </div>
       </div>
@@ -75,8 +148,8 @@ export function ProductsTable({ products }: { products: Product[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentProducts.map((product, index) => {
-                const actualIndex = startIndex + index
+              {filteredProducts.map((product, index) => {
+                const actualIndex = startIndex + index - 1
                 return (
                   <TableRow key={actualIndex}>
                     <TableCell className="sticky left-0 z-10 bg-card border-r font-medium">
@@ -144,7 +217,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
       {/* Pagination Controls */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Displaying {currentProducts.length} of {products.length} records
+          Displaying {filteredProducts.length} of {total.toLocaleString()} total records (Page {currentPage} of {totalPages})
         </div>
         
         <div className="flex items-center gap-2">
@@ -152,7 +225,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
             variant="outline"
             size="sm"
             onClick={goToFirstPage}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || totalPages === 0}
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
@@ -161,14 +234,14 @@ export function ProductsTable({ products }: { products: Product[] }) {
             variant="outline"
             size="sm"
             onClick={goToPreviousPage}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || totalPages === 0}
           >
             <ChevronLeft className="h-4 w-4" />
             Previous
           </Button>
 
           <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            {totalPages > 0 && Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum
               if (totalPages <= 5) {
                 pageNum = i + 1
@@ -198,7 +271,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
             variant="outline"
             size="sm"
             onClick={goToNextPage}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
           >
             Next
             <ChevronRight className="h-4 w-4" />
@@ -208,7 +281,7 @@ export function ProductsTable({ products }: { products: Product[] }) {
             variant="outline"
             size="sm"
             onClick={goToLastPage}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || totalPages === 0}
           >
             <ChevronsRight className="h-4 w-4" />
           </Button>

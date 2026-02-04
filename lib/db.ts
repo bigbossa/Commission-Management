@@ -9,10 +9,10 @@ const config: sql.config = {
     encrypt: process.env.MSSQL_ENCRYPT === 'true',
     trustServerCertificate: process.env.MSSQL_TRUST_SERVER_CERTIFICATE === 'true',
   },
-  connectionTimeout: 15000,
-  requestTimeout: 15000,
+  connectionTimeout: 60000,
+  requestTimeout: 60000,
   pool: {
-    max: 10,
+    max: 20,
     min: 0,
     idleTimeoutMillis: 30000,
   },

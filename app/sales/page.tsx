@@ -7,8 +7,17 @@ import { useEffect, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
+interface PaginationInfo {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
 export default function SalesPage() {
   const [salesData, setSalesData] = useState([])
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,12 +26,13 @@ export default function SalesPage() {
     
     async function fetchSales() {
       try {
+        setLoading(true)
         setError(null)
         
         const controller = new AbortController()
-        timeoutId = setTimeout(() => controller.abort(), 20000)
+        timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
         
-        const response = await fetch('/api/sales', {
+        const response = await fetch(`/api/sales?page=${currentPage}&pageSize=100`, {
           signal: controller.signal,
           cache: 'no-store'
         })
@@ -33,13 +43,14 @@ export default function SalesPage() {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         
-        const data = await response.json()
+        const result = await response.json()
         
-        if (data.error) {
-          throw new Error(data.error)
+        if (result.error) {
+          throw new Error(result.error)
         }
         
-        setSalesData(data)
+        setSalesData(result.data)
+        setPagination(result.pagination)
       } catch (error: any) {
         console.error('Failed to fetch sales:', error)
         if (error.name === 'AbortError') {
@@ -57,7 +68,7 @@ export default function SalesPage() {
     return () => {
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [])
+  }, [currentPage])
 
   if (loading) {
     return (
@@ -93,7 +104,13 @@ export default function SalesPage() {
   return (
     <div className="space-y-8">
       <SalesHeader />
-      <SalesTable salesData={salesData} />
+      <SalesTable 
+        salesData={salesData} 
+        pagination={pagination}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        loading={loading}
+      />
     </div>
   )
 }

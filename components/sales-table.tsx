@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import {
   Table,
   TableBody,
@@ -12,18 +11,41 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface SalesData {
   [key: string]: any
 }
 
-interface SalesTableProps {
-  salesData: SalesData[]
+interface PaginationInfo {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
 }
 
-export function SalesTable({ salesData }: SalesTableProps) {
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 50
+interface SalesTableProps {
+  salesData: SalesData[]
+  pagination: PaginationInfo | null
+  currentPage: number
+  onPageChange: (page: number) => void
+  loading: boolean
+}
+
+export function SalesTable({ salesData, pagination, currentPage, onPageChange, loading }: SalesTableProps) {
+  if (loading) {
+    return (
+      <div className="rounded-lg border bg-card p-8">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+        <p className="text-center text-sm text-muted-foreground mt-4">Loading data...</p>
+      </div>
+    )
+  }
 
   if (!salesData || salesData.length === 0) {
     return (
@@ -33,27 +55,24 @@ export function SalesTable({ salesData }: SalesTableProps) {
     )
   }
 
-  // Get column names from first record
   const columns = Object.keys(salesData[0])
+  const totalPages = pagination?.totalPages || 1
+  const total = pagination?.total || 0
+  const startIndex = pagination ? (pagination.page - 1) * pagination.pageSize + 1 : 1
+  const endIndex = pagination ? Math.min(pagination.page * pagination.pageSize, total) : salesData.length
 
-  // Calculate pagination
-  const totalPages = Math.ceil(salesData.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentData = salesData.slice(startIndex, endIndex)
-
-  const goToFirstPage = () => setCurrentPage(1)
-  const goToLastPage = () => setCurrentPage(totalPages)
-  const goToPreviousPage = () => setCurrentPage(prev => Math.max(1, prev - 1))
-  const goToNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1))
+  const goToFirstPage = () => onPageChange(1)
+  const goToLastPage = () => onPageChange(totalPages)
+  const goToPreviousPage = () => onPageChange(Math.max(1, currentPage - 1))
+  const goToNextPage = () => onPageChange(Math.min(totalPages, currentPage + 1))
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Total Records: <strong>{salesData.length}</strong> | 
+          Total Records: <strong>{total.toLocaleString()}</strong> | 
           Total Columns: <strong>{columns.length}</strong> |
-          Showing: <strong>{startIndex + 1}</strong> - <strong>{Math.min(endIndex, salesData.length)}</strong>
+          Showing: <strong>{startIndex.toLocaleString()}</strong> - <strong>{endIndex.toLocaleString()}</strong>
         </div>
         
         <div className="flex items-center gap-2">
@@ -79,8 +98,8 @@ export function SalesTable({ salesData }: SalesTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentData.map((record, index) => {
-                const actualIndex = startIndex + index
+              {salesData.map((record, index) => {
+                const actualIndex = startIndex + index - 1
                 return (
                   <TableRow key={actualIndex}>
                     <TableCell className="sticky left-0 z-10 bg-card border-r font-medium">
@@ -148,7 +167,7 @@ export function SalesTable({ salesData }: SalesTableProps) {
       {/* Pagination Controls */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Displaying {currentData.length} of {salesData.length} records
+          Displaying {salesData.length} of {total.toLocaleString()} total records (Page {currentPage} of {totalPages})
         </div>
         
         <div className="flex items-center gap-2">
@@ -189,7 +208,7 @@ export function SalesTable({ salesData }: SalesTableProps) {
                   key={pageNum}
                   variant={currentPage === pageNum ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setCurrentPage(pageNum)}
+                  onClick={() => onPageChange(pageNum)}
                   className="w-10"
                 >
                   {pageNum}

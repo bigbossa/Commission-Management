@@ -30,6 +30,8 @@ import { th } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 
 interface AnalyticsData {
+  EmployeeCode: string
+  EmployeeName: string
   BPC_DIMENSION5_: string
   TotalQTY: number
 }
@@ -406,7 +408,8 @@ export default function AnalyticsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="font-bold bg-primary text-primary-foreground">ลำดับ</TableHead>
-                      <TableHead className="font-bold bg-primary text-primary-foreground">BPC_DIMENSION5_</TableHead>
+                      <TableHead className="font-bold bg-primary text-primary-foreground">รหัสพนักงาน</TableHead>
+                      <TableHead className="font-bold bg-primary text-primary-foreground">ชื่อพนักงาน</TableHead>
                       <TableHead className="font-bold bg-primary text-primary-foreground text-right">QTY รวม</TableHead>
                       <TableHead className="font-bold bg-primary text-primary-foreground text-right">อัตราเฉลี่ย (บาท/QTY)</TableHead>
                       <TableHead className="font-bold bg-primary text-primary-foreground text-right">Commission (บาท)</TableHead>
@@ -416,7 +419,8 @@ export default function AnalyticsPage() {
                     {analyticsWithCommission.map((item, index) => (
                       <TableRow key={item.BPC_DIMENSION5_} className="hover:bg-muted/50">
                         <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell className="font-medium text-blue-600">{item.BPC_DIMENSION5_}</TableCell>
+                        <TableCell className="font-medium text-blue-600">{item.EmployeeCode}</TableCell>
+                        <TableCell className="font-medium">{item.EmployeeName}</TableCell>
                         <TableCell className="text-right font-mono text-lg text-primary font-semibold">
                           {item.TotalQTY.toLocaleString('en-US', { 
                             minimumFractionDigits: 0,
@@ -439,7 +443,7 @@ export default function AnalyticsPage() {
                     ))}
                     <TableRow className="bg-muted font-bold border-t-2 border-primary">
                       <TableCell className="font-bold"></TableCell>
-                      <TableCell className="font-bold text-lg">รวมทั้งหมด</TableCell>
+                      <TableCell className="font-bold text-lg" colSpan={2}>รวมทั้งหมด</TableCell>
                       <TableCell className="text-right font-mono text-xl text-primary">
                         {totalQTY.toLocaleString('en-US', { 
                           minimumFractionDigits: 0,
