@@ -10,8 +10,10 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, X } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useState } from "react"
 
 interface SalesData {
   [key: string]: any
@@ -29,11 +31,15 @@ interface SalesTableProps {
   pagination: PaginationInfo | null
   currentPage: number
   onPageChange: (page: number) => void
+  onSearch: (query: string) => void
+  searchQuery: string
   loading: boolean
 }
 
-export function SalesTable({ salesData, pagination, currentPage, onPageChange, loading }: SalesTableProps) {
-  if (loading) {
+export function SalesTable({ salesData, pagination, currentPage, onPageChange, onSearch, searchQuery, loading }: SalesTableProps) {
+  const [inputValue, setInputValue] = useState(searchQuery)
+
+  if (loading && !salesData.length) {
     return (
       <div className="rounded-lg border bg-card p-8">
         <div className="space-y-4">
@@ -66,13 +72,60 @@ export function SalesTable({ salesData, pagination, currentPage, onPageChange, l
   const goToPreviousPage = () => onPageChange(Math.max(1, currentPage - 1))
   const goToNextPage = () => onPageChange(Math.min(totalPages, currentPage + 1))
 
+  // Handle search
+  const handleSearchSubmit = () => {
+    onSearch(inputValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit()
+    }
+  }
+
+  const clearSearch = () => {
+    setInputValue("")
+    onSearch("")
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="text-sm text-muted-foreground">
           Total Records: <strong>{total.toLocaleString()}</strong> | 
-          Total Columns: <strong>{columns.length}</strong> |
-          Showing: <strong>{startIndex.toLocaleString()}</strong> - <strong>{endIndex.toLocaleString()}</strong>
+          Total Columns: <strong>{columns.length}</strong>
+          {searchQuery && (
+            <span> | ค้นหา: <strong className="text-primary">"{searchQuery}"</strong></span>
+          )}
+        </div>
+        
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="ค้นหาทั้งหมด (กด Enter)..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="pl-10 pr-10"
+          />
+          {inputValue && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing: <strong>{total > 0 ? startIndex.toLocaleString() : 0}</strong> - <strong>{endIndex.toLocaleString()}</strong>
+          {searchQuery && (
+            <span className="text-primary"> (filtered)</span>
+          )}
         </div>
         
         <div className="flex items-center gap-2">

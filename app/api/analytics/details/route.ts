@@ -23,9 +23,9 @@ export async function GET(request: Request) {
   try {
     console.log(`[API] Fetching analytics details for employee ${employeeCode}...`)
     
-    // Query to get detailed breakdown with sales info
+    // Query to get detailed breakdown with sales info (no limit to get accurate total)
     let queryString = `
-      SELECT TOP 500
+      SELECT
         SALESID,
         INVOICEID,
         LASTSETTLEVOUCHER,

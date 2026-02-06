@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, X } from "lucide-react"
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface Product {
@@ -31,11 +31,13 @@ interface ProductsTableProps {
   pagination: PaginationInfo | null
   currentPage: number
   onPageChange: (page: number) => void
+  onSearch: (query: string) => void
+  searchQuery: string
   loading: boolean
 }
 
-export function ProductsTable({ products, pagination, currentPage, onPageChange, loading }: ProductsTableProps) {
-  const [searchQuery, setSearchQuery] = useState("")
+export function ProductsTable({ products, pagination, currentPage, onPageChange, onSearch, searchQuery, loading }: ProductsTableProps) {
+  const [inputValue, setInputValue] = useState(searchQuery)
 
   if (loading) {
     return (
@@ -62,19 +64,8 @@ export function ProductsTable({ products, pagination, currentPage, onPageChange,
   // Get column names from first record
   const columns = Object.keys(products[0])
 
-  // Filter products based on search query (client-side filter on current page)
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return products
-
-    const query = searchQuery.toLowerCase()
-    return products.filter((product) => {
-      return columns.some((column) => {
-        const value = product[column]
-        if (value === null || value === undefined) return false
-        return String(value).toLowerCase().includes(query)
-      })
-    })
-  }, [products, searchQuery, columns])
+  // Use products directly (filtering is done server-side now)
+  const filteredProducts = products
 
   const totalPages = pagination?.totalPages || 1
   const total = pagination?.total || 0
@@ -86,6 +77,22 @@ export function ProductsTable({ products, pagination, currentPage, onPageChange,
   const goToPreviousPage = () => onPageChange(Math.max(1, currentPage - 1))
   const goToNextPage = () => onPageChange(Math.min(totalPages, currentPage + 1))
 
+  // Handle search with debounce
+  const handleSearchSubmit = () => {
+    onSearch(inputValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit()
+    }
+  }
+
+  const clearSearch = () => {
+    setInputValue("")
+    onSearch("")
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -93,34 +100,37 @@ export function ProductsTable({ products, pagination, currentPage, onPageChange,
           Total Records: <strong>{total.toLocaleString()}</strong> | 
           Total Columns: <strong>{columns.length}</strong>
           {searchQuery && (
-            <span> | Found on page: <strong className="text-primary">{filteredProducts.length}</strong></span>
+            <span> | ค้นหา: <strong className="text-primary">"{searchQuery}"</strong></span>
           )}
         </div>
         
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="ค้นหาในหน้านี้..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        <div className="relative w-full sm:w-80 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="ค้นหาทั้งหมด (กด Enter)..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="pl-10 pr-10"
+            />
+            {inputValue && (
+              <button
+                onClick={clearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Showing: <strong>{startIndex.toLocaleString()}</strong> - <strong>{endIndex.toLocaleString()}</strong>
-          {searchQuery && filteredProducts.length < products.length && (
+          Showing: <strong>{total > 0 ? startIndex.toLocaleString() : 0}</strong> - <strong>{endIndex.toLocaleString()}</strong>
+          {searchQuery && (
             <span className="text-primary"> (filtered)</span>
           )}
         </div>

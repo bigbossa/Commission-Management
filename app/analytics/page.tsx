@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Calendar as CalendarIcon } from "lucide-react"
+import { AlertCircle, Calendar as CalendarIcon, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import * as XLSX from 'xlsx'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -325,6 +326,122 @@ export default function AnalyticsPage() {
 
   const totalCommission = analyticsWithCommission.reduce((sum, item) => sum + item.Commission, 0)
 
+  // Export to Excel function
+  const exportToExcel = () => {
+    // Prepare data for export
+    const exportData = analyticsWithCommission.map((item, index) => ({
+      'ลำดับ': index + 1,
+      'รหัสพนักงาน': item.EmployeeCode,
+      'ชื่อพนักงาน': item.EmployeeName,
+      'BPC_DIMENSION5_': item.BPC_DIMENSION5_,
+      'QTY รวม': item.TotalQTY,
+      'อัตราเฉลี่ย (บาท/QTY)': item.AvgRate,
+      'Commission (บาท)': item.Commission
+    }))
+
+    // Add total row
+    exportData.push({
+      'ลำดับ': '' as any,
+      'รหัสพนักงาน': '',
+      'ชื่อพนักงาน': 'รวมทั้งหมด',
+      'BPC_DIMENSION5_': '',
+      'QTY รวม': totalQTY,
+      'อัตราเฉลี่ย (บาท/QTY)': calculateAvgRate(totalQTY),
+      'Commission (บาท)': totalCommission
+    })
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData)
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 8 },   // ลำดับ
+      { wch: 15 },  // รหัสพนักงาน
+      { wch: 30 },  // ชื่อพนักงาน
+      { wch: 20 },  // BPC_DIMENSION5_
+      { wch: 15 },  // QTY รวม
+      { wch: 20 },  // อัตราเฉลี่ย
+      { wch: 18 }   // Commission
+    ]
+
+    // Create workbook
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Commission Analytics')
+
+    // Generate filename with date
+    let filename = 'Commission_Analytics'
+    if (filterMode === 'year' && selectedYear) {
+      filename += `_${selectedYear}`
+    } else if (filterMode === 'dateRange' && startDate && endDate) {
+      filename += `_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`
+    }
+    if (selectedDimension) {
+      filename += `_${selectedDimension}`
+    }
+    filename += '.xlsx'
+
+    // Save file
+    XLSX.writeFile(wb, filename)
+  }
+
+  // Export detail data to Excel
+  const exportDetailToExcel = () => {
+    if (!selectedEmployee || detailData.length === 0) return
+
+    // Prepare data for export
+    const exportData = detailData.map((item, index) => ({
+      'ลำดับ': index + 1,
+      'SALESID': item.SalesId,
+      'INVOICEID': item.InvoiceId,
+      'LASTSETTLEVOUCHER': item.LastSettleVoucher,
+      'RECID': item.RecId,
+      'วันที่ Settle': item.LastSettleDate ? format(new Date(item.LastSettleDate), 'dd/MM/yyyy') : '-',
+      'QTY': item.TotalQTY
+    }))
+
+    // Add total row
+    const totalDetailQTY = detailData.reduce((sum, item) => sum + item.TotalQTY, 0)
+    exportData.push({
+      'ลำดับ': '' as any,
+      'SALESID': '',
+      'INVOICEID': '',
+      'LASTSETTLEVOUCHER': '',
+      'RECID': '',
+      'วันที่ Settle': 'รวมทั้งหมด',
+      'QTY': totalDetailQTY
+    })
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData)
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 8 },   // ลำดับ
+      { wch: 18 },  // SALESID
+      { wch: 18 },  // INVOICEID
+      { wch: 20 },  // LASTSETTLEVOUCHER
+      { wch: 15 },  // RECID
+      { wch: 15 },  // วันที่ Settle
+      { wch: 12 }   // QTY
+    ]
+
+    // Create workbook
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'QTY Details')
+
+    // Generate filename
+    let filename = `QTY_Detail_${selectedEmployee.EmployeeCode}`
+    if (filterMode === 'year' && selectedYear) {
+      filename += `_${selectedYear}`
+    } else if (filterMode === 'dateRange' && startDate && endDate) {
+      filename += `_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}`
+    }
+    filename += '.xlsx'
+
+    // Save file
+    XLSX.writeFile(wb, filename)
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
@@ -352,12 +469,23 @@ export default function AnalyticsPage() {
               ช่วงวันที่
             </Button>
             
+            <Button
+              variant="outline"
+              onClick={exportToExcel}
+              size="sm"
+              className="bg-green-600 text-white hover:bg-green-700"
+              disabled={loading || analyticsWithCommission.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              {/* <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   {selectedDimension || 'BPC_DIMENSION5_: ทั้งหมด'}
                 </Button>
-              </DropdownMenuTrigger>
+              </DropdownMenuTrigger> */}
               <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
                 <DropdownMenuItem
                   onClick={() => setSelectedDimension(null)}
@@ -584,20 +712,32 @@ export default function AnalyticsPage() {
             ) : (
               <>
                 <div className="mb-4 p-4 bg-muted rounded-lg">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">จำนวนรายการทั้งหมด</p>
-                      <p className="text-2xl font-bold">{detailData.length.toLocaleString()} รายการ</p>
+                  <div className="flex justify-between items-start">
+                    <div className="grid grid-cols-2 gap-4 flex-1">
+                      <div>
+                        <p className="text-sm text-muted-foreground">จำนวนรายการทั้งหมด</p>
+                        <p className="text-2xl font-bold">{detailData.length.toLocaleString()} รายการ</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">QTY รวม</p>
+                        <p className="text-2xl font-bold text-primary">
+                          {detailData.reduce((sum, item) => sum + item.TotalQTY, 0).toLocaleString('en-US', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2
+                          })}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">QTY รวม</p>
-                      <p className="text-2xl font-bold text-primary">
-                        {detailData.reduce((sum, item) => sum + item.TotalQTY, 0).toLocaleString('en-US', {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2
-                        })}
-                      </p>
-                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={exportDetailToExcel}
+                      size="sm"
+                      className="bg-green-600 text-white hover:bg-green-700"
+                      disabled={detailLoading || detailData.length === 0}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Excel
+                    </Button>
                   </div>
                 </div>
 

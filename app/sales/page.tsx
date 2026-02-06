@@ -3,7 +3,7 @@
 import { SalesTable } from "@/components/sales-table"
 import { SalesHeader } from "@/components/sales-header"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -18,59 +18,69 @@ export default function SalesPage() {
   const [salesData, setSalesData] = useState([])
   const [pagination, setPagination] = useState<PaginationInfo | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetchSales = useCallback(async (page: number, search: string) => {
     let timeoutId: NodeJS.Timeout
     
-    async function fetchSales() {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const controller = new AbortController()
-        timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-        
-        const response = await fetch(`/api/sales?page=${currentPage}&pageSize=100`, {
-          signal: controller.signal,
-          cache: 'no-store'
-        })
-        
-        clearTimeout(timeoutId)
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        
-        const result = await response.json()
-        
-        if (result.error) {
-          throw new Error(result.error)
-        }
-        
-        setSalesData(result.data)
-        setPagination(result.pagination)
-      } catch (error: any) {
-        console.error('Failed to fetch sales:', error)
-        if (error.name === 'AbortError') {
-          setError('Request timeout - Database connection is taking too long')
-        } else {
-          setError(error.message || 'Failed to load data from SQL Server')
-        }
-      } finally {
-        setLoading(false)
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const controller = new AbortController()
+      timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: '100'
+      })
+      if (search.trim()) {
+        params.append('search', search.trim())
       }
+      
+      const response = await fetch(`/api/sales?${params.toString()}`, {
+        signal: controller.signal,
+        cache: 'no-store'
+      })
+      
+      clearTimeout(timeoutId!)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      
+      setSalesData(result.data)
+      setPagination(result.pagination)
+    } catch (error: any) {
+      console.error('Failed to fetch sales:', error)
+      if (error.name === 'AbortError') {
+        setError('Request timeout - Database connection is taking too long')
+      } else {
+        setError(error.message || 'Failed to load data from SQL Server')
+      }
+    } finally {
+      setLoading(false)
     }
+  }, [])
 
-    fetchSales()
-    
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [currentPage])
+  useEffect(() => {
+    fetchSales(currentPage, searchQuery)
+  }, [currentPage, searchQuery, fetchSales])
 
-  if (loading) {
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    setCurrentPage(1) // Reset to first page when searching
+  }
+
+  if (loading && !salesData.length) {
     return (
       <div className="space-y-8">
         <SalesHeader />
@@ -109,6 +119,8 @@ export default function SalesPage() {
         pagination={pagination}
         currentPage={currentPage}
         onPageChange={setCurrentPage}
+        onSearch={handleSearch}
+        searchQuery={searchQuery}
         loading={loading}
       />
     </div>
